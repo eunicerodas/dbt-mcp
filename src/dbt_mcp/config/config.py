@@ -249,10 +249,21 @@ def load_config() -> Config:
         and settings.actual_prod_environment_id
         and settings.dbt_token
     ):
-        if settings.multicell_account_prefix:
-            url = f"https://{settings.multicell_account_prefix}.metadata.{settings.actual_host}/graphql"
+        # Extract the account ID from the host (e.g., "id369" from "id369.us3.dbt.com")
+        host_parts = settings.actual_host.split('.')
+        if len(host_parts) >= 2:
+            account_id = host_parts[0]
+            domain_parts = host_parts[1:]
+            base_domain = '.'.join(domain_parts)
+            metadata_host = f"{account_id}.metadata.{base_domain}"
         else:
-            url = f"https://metadata.{settings.actual_host}/graphql"
+            # Fallback to old behavior if host doesn't match expected pattern
+            if settings.multicell_account_prefix:
+                metadata_host = f"{settings.multicell_account_prefix}.metadata.{settings.actual_host}"
+            else:
+                metadata_host = f"metadata.{settings.actual_host}"
+        
+        url = f"https://{metadata_host}/graphql"
         discovery_config = DiscoveryConfig(
             url=url,
             headers={
@@ -272,10 +283,20 @@ def load_config() -> Config:
         is_local = settings.actual_host and settings.actual_host.startswith("localhost")
         if is_local:
             host = settings.actual_host
-        elif settings.multicell_account_prefix:
-            host = f"{settings.multicell_account_prefix}.semantic-layer.{settings.actual_host}"
         else:
-            host = f"semantic-layer.{settings.actual_host}"
+            # Extract the account ID from the host (e.g., "id369" from "id369.us3.dbt.com")
+            host_parts = settings.actual_host.split('.')
+            if len(host_parts) >= 2:
+                account_id = host_parts[0]
+                domain_parts = host_parts[1:]
+                base_domain = '.'.join(domain_parts)
+                host = f"{account_id}.semantic-layer.{base_domain}"
+            else:
+                # Fallback to old behavior if host doesn't match expected pattern
+                if settings.multicell_account_prefix:
+                    host = f"{settings.multicell_account_prefix}.semantic-layer.{settings.actual_host}"
+                else:
+                    host = f"semantic-layer.{settings.actual_host}"
         assert host is not None
 
         semantic_layer_config = SemanticLayerConfig(
